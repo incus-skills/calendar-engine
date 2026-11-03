@@ -2,9 +2,10 @@
 # Frozen Specification Realization
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Callable, List, Dict, Any
-import libephemeris as ephem
+import libephemeris as eph
+from libephemeris.constants import SUN, MOON, FLG_SPEED
 import pickle
 import sched
 import time
@@ -115,45 +116,62 @@ class CalendarEngine:
         self._running = False
 
     # === 1. Observation (Runtime Activity) ===
-    # def observe(self, dt: Optional[datetime] = None) -> RawObservation:
-    #     """Acquire raw measurements."""
-    #     if dt is None:
-    #         dt = datetime.now()
-    #     # In production: use Skyfield
-    #     day_of_year = dt.timetuple().tm_yday
-    #     solar_longitude = (day_of_year / 365.25) * 360.0
-    #     days_since_epoch = (dt - datetime(2000, 1, 1)).days
-    #     lunar_longitude = (days_since_epoch * 13.37) % 360.0
-    #     lunar_phase = (lunar_longitude - solar_longitude) % 360.0
-    #     return RawObservation(
-    #         timestamp=dt,
-    #         latitude=self.latitude,
-    #         longitude=self.longitude,
-    #         solar_longitude=solar_longitude,
-    #         lunar_longitude=lunar_longitude,
-    #         lunar_phase=lunar_phase,
-    #     )
+    def observe(self, dt: Optional[datetime] = None) -> RawObservation:
+        """Acquire live astronomical observations via libephemeris."""
+        if dt is None:
+            dt = datetime.now(timezone.utc)
+        elif dt.tzinfo is None:
+            # Naive datetime: assume UTC (documented behavior)
+            dt = dt.replace(tzinfo=timezone.utc)
+
+        # Convert to UTC for Julian Day calculation
+        dt_utc = dt.astimezone(timezone.utc)
+
+        # Convert datetime to Julian Day (treated as UT1 by calc_ut)
+        frac_hours = (
+            dt_utc.hour
+            + dt_utc.minute / 60
+            + (dt_utc.second + dt_utc.microsecond / 1_000_000) / 3600
+        )
+        jd = eph.julday(dt_utc.year, dt_utc.month, dt_utc.day, frac_hours)
+
+        # Solar position (ecliptic longitude)
+        sun_pos, _ = eph.calc_ut(jd, SUN, FLG_SPEED)
+        solar_longitude = sun_pos[0]
+
+        # Lunar position (ecliptic longitude)
+        moon_pos, _ = eph.calc_ut(jd, MOON, FLG_SPEED)
+        lunar_longitude = moon_pos[0]
+
+        # Lunar phase (0-360)
+        lunar_phase = (lunar_longitude - solar_longitude) % 360.0
+
+        return RawObservation(
+            timestamp=dt,  # preserve original for display
+            latitude=self.latitude,
+            longitude=self.longitude,
+            solar_longitude=solar_longitude,
+            lunar_longitude=lunar_longitude,
+            lunar_phase=lunar_phase,
+        )
 
     def observe(self, dt: Optional[datetime] = None) -> RawObservation:
-        """Acquire live astronomical observations via ephemeris."""
+        """Acquire live astronomical observations via libephemeris."""
         if dt is None:
             dt = datetime.now()
 
-        # Create observer location
-        obs = ephem.Observer()
-        obs.lat = str(self.latitude)
-        obs.long = str(self.longitude)
-        obs.date = dt.strftime("%Y/%m/%d %H:%M:%S")
+        # Convert datetime to Julian Day (UT1)
+        jd = eph.julday(
+            dt.year, dt.month, dt.day, dt.hour + dt.minute / 60.0 + dt.second / 3600.0
+        )
 
-        # Solar position
-        sun = ephem.Sun()
-        sun.compute(obs)
-        solar_longitude = sun.ra * 180.0 / 3.14159  # Convert to degrees
+        # Solar position (ecliptic longitude)
+        sun_pos, _ = eph.calc_ut(jd, SUN, FLG_SPEED)
+        solar_longitude = sun_pos[0]
 
-        # Lunar position
-        moon = ephem.Moon()
-        moon.compute(obs)
-        lunar_longitude = moon.ra * 180.0 / 3.14159  # Convert to degrees
+        # Lunar position (ecliptic longitude)
+        moon_pos, _ = eph.calc_ut(jd, MOON, FLG_SPEED)
+        lunar_longitude = moon_pos[0]
 
         # Lunar phase (0-360)
         lunar_phase = (lunar_longitude - solar_longitude) % 360.0
