@@ -117,17 +117,21 @@ class CalendarEngine:
 
     # === 1. Observation (Runtime Activity) ===
     def observe(self, dt: Optional[datetime] = None) -> RawObservation:
-        """Acquire live astronomical observations via libephemeris."""
+        """Observe at a datetime; naive inputs are UTC by contract.
+
+        Aware datetimes are normalized to UTC; fractional seconds are retained.
+        UTC is passed as a proxy for UT1 without a DUT1 correction.
+        """
         if dt is None:
             dt = datetime.now(timezone.utc)
         elif dt.tzinfo is None:
-            # Naive datetime: assume UTC (documented behavior)
+            # Naive datetime: UTC is assumed by contract, not detected.
             dt = dt.replace(tzinfo=timezone.utc)
 
-        # Convert to UTC for Julian Day calculation
+        # Convert datetime to UTC for Julian Day calculation.
         dt_utc = dt.astimezone(timezone.utc)
 
-        # Convert datetime to Julian Day (treated as UT1 by calc_ut)
+        # UTC is used as a proxy for UT1; no DUT1 correction is applied.
         frac_hours = (
             dt_utc.hour
             + dt_utc.minute / 60
@@ -147,37 +151,7 @@ class CalendarEngine:
         lunar_phase = (lunar_longitude - solar_longitude) % 360.0
 
         return RawObservation(
-            timestamp=dt,  # preserve original for display
-            latitude=self.latitude,
-            longitude=self.longitude,
-            solar_longitude=solar_longitude,
-            lunar_longitude=lunar_longitude,
-            lunar_phase=lunar_phase,
-        )
-
-    def observe(self, dt: Optional[datetime] = None) -> RawObservation:
-        """Acquire live astronomical observations via libephemeris."""
-        if dt is None:
-            dt = datetime.now()
-
-        # Convert datetime to Julian Day (UT1)
-        jd = eph.julday(
-            dt.year, dt.month, dt.day, dt.hour + dt.minute / 60.0 + dt.second / 3600.0
-        )
-
-        # Solar position (ecliptic longitude)
-        sun_pos, _ = eph.calc_ut(jd, SUN, FLG_SPEED)
-        solar_longitude = sun_pos[0]
-
-        # Lunar position (ecliptic longitude)
-        moon_pos, _ = eph.calc_ut(jd, MOON, FLG_SPEED)
-        lunar_longitude = moon_pos[0]
-
-        # Lunar phase (0-360)
-        lunar_phase = (lunar_longitude - solar_longitude) % 360.0
-
-        return RawObservation(
-            timestamp=dt,
+            timestamp=dt,  # preserve original (or UTC-assumed) datetime
             latitude=self.latitude,
             longitude=self.longitude,
             solar_longitude=solar_longitude,
