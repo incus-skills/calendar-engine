@@ -36,4 +36,13 @@ jobs:
 
     - name: Run tests (if any)
       run: |
-        pytest -v || echo "No tests found"
+        if pytest -v; then
+          :
+        else
+          status=$?
+          if [ "$status" -eq 5 ]; then
+            echo "No tests found"
+          else
+            exit "$status"
+          fi
+        fi
