@@ -1,0 +1,6 @@
+[tools]
+python = "3.12"  # or whichever Python version you prefer
+uv = "latest"
+
+[settings]
+python.uv_venv_auto = "create|source"
