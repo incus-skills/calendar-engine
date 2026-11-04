@@ -2,9 +2,9 @@ name: Calendar Engine Test
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [ master ]
   pull_request:
-    branches: [ master, main ]
+    branches: [ master ]
   workflow_dispatch:
 
 jobs:
@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
+        # 3.12 is the declared minimum; 3.13 checks compatibility on a newer runtime.
         python-version: ["3.12", "3.13"]
 
     steps:
