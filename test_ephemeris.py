@@ -1,16 +1,40 @@
-import libephemeris as swe
-from libephemeris.constants import SUN, MOON, MARS, FLG_SPEED
+"""Integration smoke tests against the installed LibEphemeris dependency."""
 
-print("DEBUG: Script is starting", flush=True)
+from datetime import datetime, timezone
+from math import isfinite
 
-jd = swe.julday(2024, 3, 26, 12.0)
+from calendar_engine import CalendarEngine, ObserverPosition
+from libephemeris.constants import FLG_J2000, FLG_SPEED, FLG_TOPOCTR
 
-# Planet positions with velocity
-sun, _ = swe.calc_ut(jd, SUN, FLG_SPEED)
-moon, _ = swe.calc_ut(jd, MOON, FLG_SPEED)
-mars, _ = swe.calc_ut(jd, MARS, FLG_SPEED)
 
-# Returns: (longitude, latitude, distance, speed_lon, speed_lat, speed_dist)
-print(f"Sun:  {sun[0]:.4f} deg, speed {sun[3]:.4f} deg/day")
-print(f"Moon: {moon[0]:.4f} deg, speed {moon[3]:.4f} deg/day")
-print(f"Mars: {mars[0]:.4f} deg, speed {mars[3]:.4f} deg/day")
+def test_live_ephemeris_returns_sun_and_moon_state():
+    observation = CalendarEngine().observe(
+        datetime(2026, 11, 3, 12, 0, tzinfo=timezone.utc)
+    )
+
+    assert set(observation.geocentric) == {"sun", "moon"}
+    for state in observation.geocentric.values():
+        assert 0.0 <= state.longitude_deg < 360.0
+        assert all(
+            isfinite(value)
+            for value in (
+                state.latitude_deg,
+                state.distance_au,
+                state.longitude_speed_deg_per_day,
+                state.latitude_speed_deg_per_day,
+                state.distance_speed_au_per_day,
+            )
+        )
+        assert state.frame.origin == "geocentric"
+        assert state.frame.requested_flags & FLG_SPEED
+        assert state.frame.requested_flags & FLG_J2000
+
+
+def test_live_ephemeris_applies_observer_position_to_topocentric_states():
+    observation = CalendarEngine(
+        observer=ObserverPosition(51.5, -0.1, 25.0)
+    ).observe(datetime(2026, 11, 3, 12, 0, tzinfo=timezone.utc))
+
+    assert set(observation.topocentric) == {"sun", "moon"}
+    assert observation.topocentric["moon"].frame.origin == "topocentric"
+    assert observation.topocentric["moon"].frame.requested_flags & FLG_TOPOCTR

@@ -1,76 +1,67 @@
-# demo.py
+"""Live demonstration of the Calendar Engine astronomical core."""
 
-from calendar_engine import CalendarEngine, RawObservation, OperationalField
+from datetime import datetime, timedelta, timezone
+
+from calendar_engine import CalendarEngine, ObserverPosition
 
 
-def main():
-    print("Calendar Operational Reconstruction Engine")
-    print("Frozen Specification Realization with Ecological Separation")
-    print("=" * 60)
+def main() -> None:
+    # Illustrative observer position; replace with an explicit site when used.
+    observer = ObserverPosition(
+        latitude_deg=51.5,
+        longitude_deg=-0.1,
+        altitude_m=0.0,
+    )
+    engine = CalendarEngine(observer=observer)
 
-    engine = CalendarEngine()
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    earlier = engine.observe(now)
+    later = engine.observe(now + timedelta(days=1))
+    change = engine.compare(earlier, later)
 
-    print("\n1. Observation (Runtime)")
-    obs = engine.observe()
-    print(f"   Solar: {obs.solar_longitude:.2f}°")
-    print(f"   Lunar: {obs.lunar_longitude:.2f}°")
-    print(f"   Phase: {obs.lunar_phase:.2f}°")
+    print("Calendar Engine — Astronomical Core")
+    print(f"UTC epoch: {earlier.timestamp_utc.isoformat()}")
+    print(f"Julian day (UT proxy): {earlier.julian_day_ut:.8f}")
+    print(
+        "Ephemeris: "
+        f"{earlier.calculation_context.library} "
+        f"{earlier.calculation_context.library_version}"
+    )
+    print(f"Reference frame: {earlier.calculation_context.reference_frame}")
 
-    print("\n2. Recognition (Runtime)")
-    dist = engine._recognize(obs)
-    print(f"   Solar distinction: {dist.solar_position}")
-    print(f"   Lunar distinction: {dist.lunar_position}")
+    print("\nGeocentric states")
+    for name, state in earlier.geocentric.items():
+        print(
+            f"{name.title():4} "
+            f"lon={state.longitude_deg:10.6f}° "
+            f"lat={state.latitude_deg:9.6f}° "
+            f"distance={state.distance_au:.9f} AU "
+            f"motion={state.longitude_speed_deg_per_day:.6f}°/day"
+        )
+    relative = earlier.geocentric_moon_sun
+    print(
+        "Moon–Sun ecliptic-longitude separation: "
+        f"{relative.separation_deg:.6f}° "
+        f"({relative.separation_speed_deg_per_day:.6f}°/day)"
+    )
 
-    print("\n3. Classification (Runtime, using Ecology Schema)")
-    cat = engine._classify(dist)
-    print(f"   Solar category: {cat.solar_category}")
-    print(f"   Lunar category: {cat.lunar_category}")
-    print(f"   Combined category: {cat.combined_category}")
+    print("\nObserver-conditioned states")
+    for name, state in earlier.topocentric.items():
+        print(
+            f"{name.title():4} "
+            f"lon={state.longitude_deg:10.6f}° "
+            f"lat={state.latitude_deg:9.6f}°"
+        )
+    print("These are topocentric ecliptic coordinates, not horizon visibility.")
 
-    print("\n4. Interpretation (Runtime)")
-    meaning = engine._interpret(cat)
-    print(f"   Orientation: {meaning.orientation}")
-    print(f"   Meaning: {meaning.meaning}")
-
-    print("\n5. Projection (Runtime) → Field")
-    field = engine._project(meaning)
-    print(f"   Orientation: {field.orientation}")
-    print(f"   Active cycles: {field.active_cycles}")
-    print(f"   Participation surfaces: {field.participation_surfaces}")
-
-    print("\n6. Complete Reconstruction")
-    engine._field = field
-    retrieved = engine.field()
-    print(f"   Retrieved orientation: {retrieved.orientation}")
-
-    print("\n7. Continuity (Persistence)")
-    engine.persist("state.pkl")
-    recovered = engine.recover("state.pkl")
-    print(f"   Recovered orientation: {recovered.orientation}")
-
-    print("\n8. Re-entry (Scheduling)")
-
-    def callback(f):
-        print(f"   Re-entry: Orientation = {f.orientation}")
-
-    engine.schedule(1.0, callback)
-    import threading
-
-    timer = threading.Timer(2.0, engine.stop)
-    timer.start()
-    engine.start()
-
-    print("\n9. Reconstructability (Self-Reference)")
-    spec = engine.specification()
-    print(f"   Ecology: {len(spec['ecology'])} elements frozen")
-    print(f"   Grammar: {len(spec['grammar'])} movements frozen")
-    print(f"   Specification: {len(spec['specification'])} operations frozen")
-    print(f"   Composition: {len(spec['composition'])} layers frozen")
-    print(f"   Contracts: {len(spec['contracts'])} frozen")
-
-    print("\n" + "=" * 60)
-    print("Construction Complete. Artifact Delivered.")
-    print("The frozen specification remains unchanged.")
+    print("\nOne-day state comparison")
+    for name, movement in change.body_changes.items():
+        print(
+            f"{name.title():4} "
+            f"principal Δlongitude={movement.principal_longitude_change_deg:+.6f}° "
+            f"principal mean rate={movement.principal_mean_longitude_rate_deg_per_day:+.6f}°/day "
+            f"rate change={movement.mean_longitude_acceleration_deg_per_day2:+.6f}°/day²"
+        )
 
 
 if __name__ == "__main__":

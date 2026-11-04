@@ -1,10 +1,5 @@
-# Calendar Operational Reconstruction Engine - CI Dependencies
-# These are required for the GitHub Actions workflow
-
-# Core dependencies
+# Runtime and test dependencies for the Calendar Engine baseline.
 numpy>=2.0.0
-libephemeris>=1.0.0
+libephemeris>=3.0.0
 skyfield>=1.49.0
-
-# Testing dependencies
 pytest>=8.0.0
